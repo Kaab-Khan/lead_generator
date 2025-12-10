@@ -1,0 +1,23 @@
+# Core dependencies for Lead Generator
+fastapi==0.104.1
+uvicorn==0.24.0
+# Google Maps API client
+googlemaps==4.10.0
+
+# HTTP requests library
+requests==2.31.0
+
+# Environment variables management
+python-dotenv==1.0.0
+pydantic-settings==2.1.0
+
+flake8==6.1.0
+black==24.10.0
+pytest==7.4.2
+pydantic-settings==2.1.0
+
+# Data export to Excel
+openpyxl==3.1.2
+
+# CSV handling (built-in, but including pandas for advanced operations)
+pandas==2.1.4
