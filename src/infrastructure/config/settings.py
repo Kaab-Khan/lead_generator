@@ -1,29 +1,36 @@
 import os
-from functools import lru_cache
-from pydantic_settings import BaseSettings
+from dataclasses import dataclass
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-class Settings(BaseSettings):
-    GOOGLE_MAPS_API_KEY: str
-    DEFAULT_RADIUS: int = 3000
-    DEFAULT_MAX_RESULTS: int = 60
+@dataclass
+class Settings:
+    google_maps_api_key: str
+    default_radius: int = 3000
+    default_max_results: int = 60
+    details_sleep_seconds: float = 0.15
+    next_page_sleep_seconds: float = 2.5
+    
+    # Rate limiting
+    enable_rate_limiting: bool = True
+    rate_limit_requests_per_minute: int = 60
+    rate_limit_requests_per_day: int = 5000
+    
+    # Cost tracking
+    enable_cost_tracking: bool = True
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "GOOGLE_MAPS_API_KEY is not set. "
+                "Add it to your .env file or environment variables."
+            )
+        return cls(google_maps_api_key=api_key)
 
 
-    class Config:
-        '''Configuration for environment variables
-        Attributes:
-            env_file (str): Path to the .env file
-            env_file_encoding (str): Encoding of the .env file
-            Google Maps API key
-            Default search radius in meters
-            Default maximum number of results to fetch
-        '''
-        GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-        if not GOOGLE_MAPS_API_KEY:
-            raise ValueError("GOOGLE_MAPS_API_KEY environment variable is not set.")
-        DEFAULT_RADIUS = 3000
-        DEFAULT_MAX_RESULTS = 60
-        
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        
+# ✅ this is the missing instantiation
+settings = Settings.from_env()

@@ -5,22 +5,43 @@ from src.infrastructure.services.geocode import GeocodeService
 from src.infrastructure.services.places_search import PlacesSearchService
 from src.infrastructure.services.place_details_service import PlaceDetailsService
 from src.infrastructure.config.settings import settings
+from src.infrastructure.monitoring import RateLimiter, RateLimitConfig, APICostTracker
 
 
 class LeadCollector:
-    """
-    Orchestrates lead collection using various services
-    """
-
     def __init__(
         self,
         geocode_service: Optional[GeocodeService] = None,
         places_search_service: Optional[PlacesSearchService] = None,
         place_details_service: Optional[PlaceDetailsService] = None,
     ) -> None:
-        self.geocode_service = geocode_service or GeocodeService()
-        self.places_search_service = places_search_service or PlacesSearchService()
-        self.place_details_service = place_details_service or PlaceDetailsService()
+        # Initialize rate limiter and cost tracker if enabled
+        self.rate_limiter = None
+        self.cost_tracker = None
+        
+        if settings.enable_rate_limiting:
+            rate_config = RateLimitConfig(
+                requests_per_minute=settings.rate_limit_requests_per_minute,
+                requests_per_day=settings.rate_limit_requests_per_day,
+            )
+            self.rate_limiter = RateLimiter(rate_config)
+        
+        if settings.enable_cost_tracking:
+            self.cost_tracker = APICostTracker()
+        
+        # Initialize services with rate limiter and cost tracker
+        self.geocode_service = geocode_service or GeocodeService(
+            rate_limiter=self.rate_limiter,
+            cost_tracker=self.cost_tracker,
+        )
+        self.places_search_service = places_search_service or PlacesSearchService(
+            rate_limiter=self.rate_limiter,
+            cost_tracker=self.cost_tracker,
+        )
+        self.place_details_service = place_details_service or PlaceDetailsService(
+            rate_limiter=self.rate_limiter,
+            cost_tracker=self.cost_tracker,
+        )
 
     def collect_leads(
         self,
@@ -29,20 +50,11 @@ class LeadCollector:
         radius: Optional[int] = None,
         max_results: Optional[int] = None,
     ) -> List[BusinessLead]:
-        """
-        Orchestrates:
-        - geocode area
-        - search places by keyword
-        - fetch details per place
-        - convert into BusinessLead objects
-        """
         radius = radius or settings.default_radius
         max_results = max_results or settings.default_max_results
 
-        # 1. geocode
         lat, lng = self.geocode_service.geocode_area(area_name)
 
-        # 2. search places
         raw_places = self.places_search_service.search_places(
             lat=lat,
             lng=lng,
@@ -53,7 +65,6 @@ class LeadCollector:
 
         leads: List[BusinessLead] = []
 
-        # 3. details → BusinessLead
         for place in raw_places:
             place_id = place.get("place_id")
             if not place_id:
@@ -76,3 +87,14 @@ class LeadCollector:
             leads.append(lead)
 
         return leads
+    
+    def get_cost_summary(self):
+        """Get the cost tracking summary"""
+        if self.cost_tracker:
+            return self.cost_tracker.get_summary()
+        return None
+    
+    def print_cost_summary(self):
+        """Print the cost tracking summary"""
+        if self.cost_tracker:
+            self.cost_tracker.print_summary()

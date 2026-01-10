@@ -26,3 +26,6 @@ def run_cli():
     exporter.export(f"output/{safe_area}_{safe_keyword}_with_website.csv", with_web)
     exporter.export(f"output/{safe_area}_{safe_keyword}_without_website.csv", without_web)
     print("\n[INFO] Lead collection and export completed.")
+    
+    # Print cost summary if tracking is enabled
+    collector.print_cost_summary()

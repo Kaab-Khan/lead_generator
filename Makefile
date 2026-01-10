@@ -45,7 +45,7 @@ run:
 	@echo "⚠️  Remember to activate the venv if not using this command:"
 	@echo "   source $(VENV_BIN)/activate"
 	@echo ""
-	$(VENV_BIN)/python src/main.py
+	$(VENV_BIN)/python -m src.main
 
 ############################################################
 # 4. CODE QUALITY

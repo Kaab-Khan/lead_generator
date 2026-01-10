@@ -4,20 +4,27 @@ from typing import Any, Dict, Optional
 import requests
 
 from src.infrastructure.config.settings import settings
+from src.infrastructure.monitoring import RateLimiter, APICostTracker
 
 
 class PlaceDetailsService:
     BASE_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self, 
+        api_key: str | None = None,
+        rate_limiter: Optional[RateLimiter] = None,
+        cost_tracker: Optional[APICostTracker] = None,
+    ) -> None:
         self.api_key = api_key or settings.google_maps_api_key
         self.sleep_between_calls = settings.details_sleep_seconds
+        self.rate_limiter = rate_limiter
+        self.cost_tracker = cost_tracker
 
     def get_place_details(self, place_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch detailed info for a single place_id using Google Place Details API.
-        Returns a dict or None on non-OK status.
-        """
+        if self.rate_limiter:
+            self.rate_limiter.wait_if_needed()
+        
         fields = [
             "name",
             "formatted_address",
@@ -25,7 +32,7 @@ class PlaceDetailsService:
             "website",
             "rating",
             "user_ratings_total",
-            "url",  # Google Maps business URL
+            "url",
         ]
 
         params = {
@@ -37,13 +44,13 @@ class PlaceDetailsService:
         resp = requests.get(self.BASE_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
+        
+        if self.cost_tracker:
+            self.cost_tracker.track_place_details()
 
         status = data.get("status")
         if status != "OK":
-            # Could be NOT_FOUND, INVALID_REQUEST, etc. — just skip.
             return None
 
-        # small delay to be gentle with rate limits
         time.sleep(self.sleep_between_calls)
         return data.get("result") or None
-
